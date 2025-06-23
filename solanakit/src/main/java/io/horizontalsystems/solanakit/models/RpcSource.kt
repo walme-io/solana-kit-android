@@ -9,5 +9,6 @@ sealed class RpcSource(var name: String, var endpoint: RPCEndpoint, val syncInte
 
     object Serum: RpcSource("Serum Project API", RPCEndpoint.mainnetBetaSerum, 30)
     object TritonOne: RpcSource("TritonOne API", RPCEndpoint.mainnetBetaSolana, 30)
+    object Devnet: RpcSource("Solana Devnet", RPCEndpoint.devnetSolana, 30)
     class Custom(name: String, httpURL: URL, websocketURL: URL, syncInterval: Long): RpcSource(name, RPCEndpoint.custom(httpURL, websocketURL, Network.mainnetBeta), syncInterval)
 }
