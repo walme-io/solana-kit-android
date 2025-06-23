@@ -13,6 +13,7 @@ import io.horizontalsystems.solanakit.models.FullTransaction
 import io.horizontalsystems.solanakit.models.TokenAccount
 import io.horizontalsystems.solanakit.models.TokenTransfer
 import io.horizontalsystems.solanakit.models.Transaction
+import com.solana.networking.Network
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -29,7 +30,8 @@ class TransactionManager(
     private val address: Address,
     private val storage: TransactionStorage,
     private val rpcAction: Action,
-    private val tokenAccountManager: TokenAccountManager
+    private val tokenAccountManager: TokenAccountManager,
+    private val network: Network
 ) {
 
     private val addressString = address.publicKey.toBase58()
@@ -129,7 +131,12 @@ class TransactionManager(
         }
 
     suspend fun sendSol(toAddress: Address, amount: Long, signerAccount: Account): FullTransaction {
-        val connection = Connection(RpcUrl.MAINNNET)
+        val rpcUrl = when (network) {
+            Network.mainnetBeta -> RpcUrl.MAINNNET
+            Network.devnet -> RpcUrl.DEVNET
+            Network.testnet -> RpcUrl.TESTNET
+        }
+        val connection = Connection(rpcUrl)
         val blockHash = connection.getLatestBlockhashExtended(Commitment.FINALIZED)
         val (transactionHash, base64Encoded) = rpcAction.sendSOL(
             account = signerAccount,
@@ -174,7 +181,12 @@ class TransactionManager(
         val tokenAccount = fullTokenAccount.tokenAccount
         val mintAccount = fullTokenAccount.mintAccount
 
-        val connection = Connection(RpcUrl.MAINNNET)
+        val rpcUrl = when (network) {
+            Network.mainnetBeta -> RpcUrl.MAINNNET
+            Network.devnet -> RpcUrl.DEVNET
+            Network.testnet -> RpcUrl.TESTNET
+        }
+        val connection = Connection(rpcUrl)
         val blockHash = connection.getLatestBlockhashExtended(Commitment.FINALIZED)
 
         val (transactionHash, base64Trx) = rpcAction.sendSPLTokens(

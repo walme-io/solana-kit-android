@@ -269,7 +269,7 @@ class SolanaKit(
             val transactionStorage = TransactionStorage(transactionDatabase, addressString)
             val solscanClient = SolscanClient(solscanApiKey, debug)
             val tokenAccountManager = TokenAccountManager(addressString, rpcApiClient, transactionStorage, mainStorage, SolanaFmService())
-            val transactionManager = TransactionManager(address, transactionStorage, rpcAction, tokenAccountManager)
+            val transactionManager = TransactionManager(address, transactionStorage, rpcAction, tokenAccountManager, rpcSource.endpoint.network)
             val pendingTransactionSyncer = PendingTransactionSyncer(rpcApiClient, transactionStorage, transactionManager)
             val transactionSyncer = TransactionSyncer(
                 address.publicKey,
