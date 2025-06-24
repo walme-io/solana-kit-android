@@ -19,6 +19,7 @@ import io.horizontalsystems.solanakit.models.MintAccount
 import io.horizontalsystems.solanakit.models.TokenAccount
 import io.horizontalsystems.solanakit.models.TokenTransfer
 import io.horizontalsystems.solanakit.models.Transaction
+import io.horizontalsystems.solanakit.models.LastSyncedTransaction
 import io.horizontalsystems.solanakit.noderpc.NftClient
 import io.horizontalsystems.solanakit.noderpc.endpoints.SignatureInfo
 import io.horizontalsystems.solanakit.noderpc.endpoints.getSignaturesForAddress
@@ -57,34 +58,32 @@ class TransactionSyncer(
 
         pendingTransactionSyncer.sync()
 
-        syncState = SolanaKit.SyncState.Synced()
-//
-//        val lastTransactionHash = storage.lastNonPendingTransaction()?.hash
-//
-//        try {
-//            val rpcSignatureInfos = getSignaturesFromRpcNode(lastTransactionHash)
-//            val solTransfers = solscanClient.solTransfers(publicKey.toBase58(), storage.getSyncedBlockTime(solscanClient.solSyncSourceName)?.hash)
-//            val splTransfers = solscanClient.splTransfers(publicKey.toBase58(), storage.getSyncedBlockTime(solscanClient.splSyncSourceName)?.hash)
-//            val solscanExportedTxs = (solTransfers + splTransfers).sortedByDescending { it.blockTime }
-//            val mintAddresses = solscanExportedTxs.mapNotNull { it.mintAccountAddress }.toSet().toList()
-//            val mintAccounts = getMintAccounts(mintAddresses)
-//            val tokenAccounts = buildTokenAccounts(solscanExportedTxs, mintAccounts)
-//            val transactions = merge(rpcSignatureInfos, solscanExportedTxs, mintAccounts)
-//
-//            transactionManager.handle(transactions, tokenAccounts)
-//
-//            if (solTransfers.isNotEmpty()) {
-//                storage.setSyncedBlockTime(LastSyncedTransaction(solscanClient.solSyncSourceName, solTransfers.first().hash))
-//            }
-//
-//            if (splTransfers.isNotEmpty()) {
-//                storage.setSyncedBlockTime(LastSyncedTransaction(solscanClient.splSyncSourceName, splTransfers.first().hash))
-//            }
-//
-//            syncState = SolanaKit.SyncState.Synced()
-//        } catch (exception: Throwable) {
-//            syncState = SolanaKit.SyncState.NotSynced(exception)
-//        }
+        val lastTransactionHash = storage.lastNonPendingTransaction()?.hash
+
+        try {
+            val rpcSignatureInfos = getSignaturesFromRpcNode(lastTransactionHash)
+            val solTransfers = solscanClient.solTransfers(publicKey.toBase58(), storage.getSyncedBlockTime(solscanClient.solSyncSourceName)?.hash)
+            val splTransfers = solscanClient.splTransfers(publicKey.toBase58(), storage.getSyncedBlockTime(solscanClient.splSyncSourceName)?.hash)
+            val solscanExportedTxs = (solTransfers + splTransfers).sortedByDescending { it.blockTime }
+            val mintAddresses = solscanExportedTxs.mapNotNull { it.mintAccountAddress }.toSet().toList()
+            val mintAccounts = getMintAccounts(mintAddresses)
+            val tokenAccounts = buildTokenAccounts(solscanExportedTxs, mintAccounts)
+            val transactions = merge(rpcSignatureInfos, solscanExportedTxs, mintAccounts)
+
+            transactionManager.handle(transactions, tokenAccounts)
+
+            if (solTransfers.isNotEmpty()) {
+                storage.setSyncedBlockTime(LastSyncedTransaction(solscanClient.solSyncSourceName, solTransfers.first().hash))
+            }
+
+            if (splTransfers.isNotEmpty()) {
+                storage.setSyncedBlockTime(LastSyncedTransaction(solscanClient.splSyncSourceName, splTransfers.first().hash))
+            }
+
+            syncState = SolanaKit.SyncState.Synced()
+        } catch (exception: Throwable) {
+            syncState = SolanaKit.SyncState.NotSynced(exception)
+        }
     }
 
     private fun merge(rpcSignatureInfos: List<SignatureInfo>, solscanTxsMap: List<SolscanTransaction>, mintAccounts: Map<String, MintAccount>): List<FullTransaction> {
