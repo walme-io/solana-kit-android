@@ -1,6 +1,7 @@
 package io.horizontalsystems.solanakit.transactions
 
 import com.solana.api.Api
+import com.solana.networking.Network
 import com.solana.rxsolana.api.getBlockHeight
 import com.solana.rxsolana.api.getConfirmedTransaction
 import io.horizontalsystems.solanakit.database.transaction.TransactionStorage
@@ -17,7 +18,8 @@ import java.util.logging.Logger
 class PendingTransactionSyncer(
     private val rpcClient: Api,
     private val storage: TransactionStorage,
-    private val transactionManager: TransactionManager
+    private val transactionManager: TransactionManager,
+    private val network: Network
 ) {
     private val logger = Logger.getLogger("PendingTransactionSyncer")
 
@@ -66,7 +68,12 @@ class PendingTransactionSyncer(
 
     private fun sendTransaction(encodedTransaction: String) {
         try {
-            val connection = URL(RpcUrl.MAINNNET.value).openConnection() as HttpURLConnection
+            val rpcUrl = when (network) {
+                Network.mainnetBeta -> RpcUrl.MAINNNET
+                Network.devnet -> RpcUrl.DEVNET
+                Network.testnet -> RpcUrl.TESTNET
+            }
+            val connection = URL(rpcUrl.value).openConnection() as HttpURLConnection
             connection.requestMethod = "POST"
             connection.setRequestProperty("Content-Type", "application/json")
             connection.doOutput = true
