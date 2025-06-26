@@ -5,6 +5,7 @@ import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.ResponseBody
 import okhttp3.logging.HttpLoggingInterceptor
+import com.solana.networking.Network
 import org.json.JSONArray
 import org.json.JSONObject
 import java.io.IOException
@@ -15,10 +16,17 @@ import kotlin.coroutines.suspendCoroutine
 
 class SolscanClient(
     auth: String,
-    debug: Boolean
+    debug: Boolean,
+    network: Network
 ) {
-    val solSyncSourceName = "solscan.io/solTransfers"
-    val splSyncSourceName = "solscan.io/splTransfers"
+    private val clusterParam = when (network) {
+        Network.mainnetBeta -> ""
+        Network.devnet -> "&cluster=devnet"
+        Network.testnet -> "&cluster=testnet"
+    }
+
+    val solSyncSourceName = "solscan.io/solTransfers-${network.name}"
+    val splSyncSourceName = "solscan.io/splTransfers-${network.name}"
     private val url = "https://public-api.solscan.io"
 
     private val httpClient = httpClient(auth, debug)
@@ -68,7 +76,7 @@ class SolscanClient(
     }
 
     private suspend fun solTransfersChunk(account: String, limit: Int, page: Int): List<SolscanTransaction> {
-        val path = "/account/solTransfers?account=$account&limit=$limit&offset=${limit * page}"
+        val path = "/account/solTransfers?account=$account&limit=$limit&offset=${limit * page}$clusterParam"
         val request: Request = Request.Builder().url(url + path).build()
 
         return suspendCoroutine { continuation ->
@@ -100,7 +108,7 @@ class SolscanClient(
     }
 
     private suspend fun splTransfersChunk(account: String, limit: Int, page: Int): List<SolscanTransaction> {
-        val path = "/account/splTransfers?account=$account&limit=$limit&offset=${limit * page}"
+        val path = "/account/splTransfers?account=$account&limit=$limit&offset=${limit * page}$clusterParam"
         val request: Request = Request.Builder().url(url + path).build()
 
         return suspendCoroutine { continuation ->
