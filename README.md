@@ -4,3 +4,20 @@ Pure Kotlin Solana kit. Uses metaplex-foundation/SolanaKT. Syncs Solana wallet a
 ## Features
 
 - Mainnet and Devnet RPC endpoints
+
+## Initialization (Devnet)
+
+```kotlin
+val rpcSource = RpcSource.Devnet
+val network = rpcSource.endpoint.network
+val solanaKit = SolanaKit.getInstance(
+    application = application,
+    addressString = "<YOUR WALLET ADDRESS>",
+    rpcSource = rpcSource,
+    walletId = "walletId",
+    solscanApiKey = "<YOUR_SOLSCAN_API_KEY>",
+    debug = true
+)
+```
+
+The `network` value comes from the chosen `RpcSource` and is passed to `SolscanClient` along with your API key. This enables transaction history syncing from the devnet cluster. A **valid Solscan API key** must be provided for history syncing to succeed.
