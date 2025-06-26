@@ -25,8 +25,8 @@ class SolscanClient(
         Network.testnet -> "&cluster=testnet"
     }
 
-    val solSyncSourceName = "solscan.io/solTransfers-${network.name}"
-    val splSyncSourceName = "solscan.io/splTransfers-${network.name}"
+    val solSyncSourceName = "solscan.io/${network.name}/solTransfers"
+    val splSyncSourceName = "solscan.io/${network.name}/splTransfers"
     private val url = "https://public-api.solscan.io"
 
     private val httpClient = httpClient(auth, debug)
