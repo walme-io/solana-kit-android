@@ -19,6 +19,8 @@ import io.horizontalsystems.solanakit.transactions.SolanaFmService
 import io.horizontalsystems.solanakit.transactions.TransactionManager
 import kotlinx.coroutines.runBlocking
 import okhttp3.OkHttpClient
+import org.junit.runner.RunWith
+import org.robolectric.RobolectricTestRunner
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Before
@@ -26,6 +28,7 @@ import org.junit.Test
 import java.math.BigDecimal
 import java.net.URL
 
+@RunWith(RobolectricTestRunner::class)
 class TransactionManagerFlowTest {
     private lateinit var transactionDatabase: TransactionDatabase
     private lateinit var mainDatabase: MainDatabase
