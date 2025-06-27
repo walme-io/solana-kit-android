@@ -51,7 +51,7 @@ class TransactionManagerFlowTest {
 
         val httpClient = OkHttpClient.Builder().build()
         val config = NetworkingRouterConfig(emptyList(), emptyList())
-        val endpoint = RPCEndpoint.custom(URL("https://localhost"), URL("wss://localhost"), Network.devnet)
+        val endpoint = RPCEndpoint.custom(URL("https://localhost"), URL("http://localhost"), Network.devnet)
         val api = Api(OkHttpNetworkingRouter(endpoint, httpClient, config))
         val tokenAccountManager = TokenAccountManager("11111111111111111111111111111111", api, storage, mainStorage, SolanaFmService())
         val action = Action(api, listOf())
