@@ -5,6 +5,8 @@ Pure Kotlin Solana kit. Uses metaplex-foundation/SolanaKT. Syncs Solana wallet a
 
 - Mainnet and Devnet RPC endpoints
 
+`Configuration.kt` defaults to the Devnet RPC source. Edit `rpcSource` in that file to switch to mainnet.
+
 ## Initialization (Devnet)
 
 ```kotlin
