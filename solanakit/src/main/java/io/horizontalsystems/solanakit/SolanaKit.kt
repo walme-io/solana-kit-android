@@ -27,7 +27,7 @@ import io.horizontalsystems.solanakit.noderpc.ApiSyncer
 import io.horizontalsystems.solanakit.noderpc.NftClient
 import io.horizontalsystems.solanakit.transactions.PendingTransactionSyncer
 import io.horizontalsystems.solanakit.transactions.SolanaFmService
-import io.horizontalsystems.solanakit.transactions.SolscanClient
+import io.horizontalsystems.solanakit.transactions.HeliusClient
 import io.horizontalsystems.solanakit.transactions.TransactionManager
 import io.horizontalsystems.solanakit.transactions.TransactionSyncer
 import kotlinx.coroutines.CoroutineScope
@@ -242,7 +242,7 @@ class SolanaKit(
             addressString: String,
             rpcSource: RpcSource,
             walletId: String,
-            solscanApiKey: String,
+            heliusApiKey: String,
             debug: Boolean = false
         ): SolanaKit {
             val httpClient = httpClient(debug)
@@ -269,7 +269,7 @@ class SolanaKit(
             val transactionStorage = TransactionStorage(transactionDatabase, addressString)
 
             val network = rpcSource.endpoint.network
-            val solscanClient = SolscanClient(solscanApiKey, debug, network)
+            val heliusClient = HeliusClient(heliusApiKey, debug, network)
             val tokenAccountManager = TokenAccountManager(addressString, rpcApiClient, transactionStorage, mainStorage, SolanaFmService())
             val transactionManager = TransactionManager(address, transactionStorage, rpcAction, tokenAccountManager, rpcSource.endpoint.network)
             val pendingTransactionSyncer = PendingTransactionSyncer(
@@ -281,7 +281,7 @@ class SolanaKit(
             val transactionSyncer = TransactionSyncer(
                 address.publicKey,
                 rpcApiClient,
-                solscanClient,
+                heliusClient,
                 nftClient,
                 transactionStorage,
                 transactionManager,

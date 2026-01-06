@@ -35,7 +35,7 @@ interface ITransactionListener {
 class TransactionSyncer(
     private val publicKey: PublicKey,
     private val rpcClient: Api,
-    private val solscanClient: SolscanClient,
+    private val heliusClient: HeliusClient,
     private val nftClient: NftClient,
     private val storage: TransactionStorage,
     private val transactionManager: TransactionManager,
@@ -62,22 +62,24 @@ class TransactionSyncer(
 
         try {
             val rpcSignatureInfos = getSignaturesFromRpcNode(lastTransactionHash)
-            val solTransfers = solscanClient.solTransfers(publicKey.toBase58(), storage.getSyncedBlockTime(solscanClient.solSyncSourceName)?.hash)
-            val splTransfers = solscanClient.splTransfers(publicKey.toBase58(), storage.getSyncedBlockTime(solscanClient.splSyncSourceName)?.hash)
-            val solscanExportedTxs = (solTransfers + splTransfers).sortedByDescending { it.blockTime }
-            val mintAddresses = solscanExportedTxs.mapNotNull { it.mintAccountAddress }.toSet().toList()
+
+            // Helius returns unified data for both SOL and SPL transfers
+            val lastSyncedHash = storage.getSyncedBlockTime(heliusClient.syncSourceName)?.hash
+            val solTransfers = heliusClient.solTransfers(publicKey.toBase58(), lastSyncedHash)
+            val splTransfers = heliusClient.splTransfers(publicKey.toBase58(), lastSyncedHash)
+            val heliusExportedTxs = (solTransfers + splTransfers).sortedByDescending { it.blockTime }
+
+            val mintAddresses = heliusExportedTxs.mapNotNull { it.mintAccountAddress }.toSet().toList()
             val mintAccounts = getMintAccounts(mintAddresses)
-            val tokenAccounts = buildTokenAccounts(solscanExportedTxs, mintAccounts)
-            val transactions = merge(rpcSignatureInfos, solscanExportedTxs, mintAccounts)
+            val tokenAccounts = buildTokenAccounts(heliusExportedTxs, mintAccounts)
+            val transactions = merge(rpcSignatureInfos, heliusExportedTxs, mintAccounts)
 
             transactionManager.handle(transactions, tokenAccounts)
 
-            if (solTransfers.isNotEmpty()) {
-                storage.setSyncedBlockTime(LastSyncedTransaction(solscanClient.solSyncSourceName, solTransfers.first().hash))
-            }
-
-            if (splTransfers.isNotEmpty()) {
-                storage.setSyncedBlockTime(LastSyncedTransaction(solscanClient.splSyncSourceName, splTransfers.first().hash))
+            // Save last synced transaction (unified for Helius)
+            val allTransfers = (solTransfers + splTransfers).sortedByDescending { it.blockTime }
+            if (allTransfers.isNotEmpty()) {
+                storage.setSyncedBlockTime(LastSyncedTransaction(heliusClient.syncSourceName, allTransfers.first().hash))
             }
 
             syncState = SolanaKit.SyncState.Synced()
