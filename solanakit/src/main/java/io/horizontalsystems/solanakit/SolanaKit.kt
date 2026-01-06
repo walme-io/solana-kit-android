@@ -302,6 +302,7 @@ class SolanaKit(
 
         private fun httpClient(debug: Boolean): OkHttpClient {
             val client = OkHttpClient.Builder()
+                .addInterceptor(io.horizontalsystems.solanakit.network.RentEpochInterceptor())
 
             if (debug) {
                 val loggingInterceptor = HttpLoggingInterceptor { message ->
