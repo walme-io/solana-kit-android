@@ -11,7 +11,7 @@ import io.horizontalsystems.solanakit.database.transaction.TransactionStorage
 import io.horizontalsystems.solanakit.models.FullTokenAccount
 import io.horizontalsystems.solanakit.models.MintAccount
 import io.horizontalsystems.solanakit.models.TokenAccount
-import io.horizontalsystems.solanakit.transactions.SolanaFmService
+import io.horizontalsystems.solanakit.transactions.HeliusClient
 import io.horizontalsystems.solanakit.transactions.getMultipleAccounts
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -30,7 +30,7 @@ class TokenAccountManager(
     private val rpcClient: Api,
     private val storage: TransactionStorage,
     private val mainStorage: MainStorage,
-    private val solanaFmService: SolanaFmService
+    private val heliusClient: HeliusClient
 ) {
 
     var syncState: SolanaKit.SyncState = SolanaKit.SyncState.NotSynced(SolanaKit.SyncError.NotStarted())
@@ -66,8 +66,16 @@ class TokenAccountManager(
 
     @Throws(Exception::class)
     private suspend fun fetchTokenAccounts(walletAddress: String) {
-        val tokenAccounts = solanaFmService.tokenAccounts(walletAddress)
-        val mintAccounts = tokenAccounts.map { MintAccount(it.mintAddress, it.decimals) }
+        val heliusTokenAccounts = heliusClient.getTokenAccounts(walletAddress)
+        val tokenAccounts = heliusTokenAccounts.map { heliusAccount ->
+            TokenAccount(
+                heliusAccount.tokenAccount,
+                heliusAccount.mint,
+                heliusAccount.amount.toBigDecimal().movePointLeft(heliusAccount.decimals),
+                heliusAccount.decimals
+            )
+        }
+        val mintAccounts = heliusTokenAccounts.map { MintAccount(it.mint, it.decimals) }
 
         storage.saveTokenAccounts(tokenAccounts)
         storage.saveMintAccounts(mintAccounts)

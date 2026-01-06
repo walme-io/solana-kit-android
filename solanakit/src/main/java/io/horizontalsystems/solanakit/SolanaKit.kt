@@ -26,7 +26,6 @@ import io.horizontalsystems.solanakit.network.ConnectionManager
 import io.horizontalsystems.solanakit.noderpc.ApiSyncer
 import io.horizontalsystems.solanakit.noderpc.NftClient
 import io.horizontalsystems.solanakit.transactions.PendingTransactionSyncer
-import io.horizontalsystems.solanakit.transactions.SolanaFmService
 import io.horizontalsystems.solanakit.transactions.HeliusClient
 import io.horizontalsystems.solanakit.transactions.TransactionManager
 import io.horizontalsystems.solanakit.transactions.TransactionSyncer
@@ -270,7 +269,7 @@ class SolanaKit(
 
             val network = rpcSource.endpoint.network
             val heliusClient = HeliusClient(heliusApiKey, debug, network)
-            val tokenAccountManager = TokenAccountManager(addressString, rpcApiClient, transactionStorage, mainStorage, SolanaFmService())
+            val tokenAccountManager = TokenAccountManager(addressString, rpcApiClient, transactionStorage, mainStorage, heliusClient)
             val transactionManager = TransactionManager(address, transactionStorage, rpcAction, tokenAccountManager, rpcSource.endpoint.network)
             val pendingTransactionSyncer = PendingTransactionSyncer(
                 rpcApiClient,
