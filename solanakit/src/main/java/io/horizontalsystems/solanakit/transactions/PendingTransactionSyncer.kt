@@ -53,8 +53,11 @@ class PendingTransactionSyncer(
                         pendingTx.copy(retryCount = pendingTx.retryCount + 1)
                     )
                 } else {
+                    // Transaction block expired - mark as not pending but DON'T set error
+                    // The actual status will be determined by Helius sync
+                    // The transaction might have been confirmed despite the timeout
                     updatedTransactions.add(
-                        pendingTx.copy(pending = false, error = "BlockHash expired")
+                        pendingTx.copy(pending = false)
                     )
                 }
 

@@ -68,22 +68,25 @@ class HeliusClient(
 
     /**
      * For backward compatibility - returns SOL transfers only
+     * Filters to transactions where user has significant SOL balance change
+     * Uses accountData.nativeBalanceChange for accuracy (filters dust spam)
      */
     suspend fun solTransfers(account: String, lastSolTransferHash: String?): List<SolscanTransaction> {
         val heliusTransactions = getTransfers(account, lastSolTransferHash)
         return heliusTransactions
-            .filter { it.hasNativeTransfer }
-            .map { it.toSolscanTransaction() }
+            .filter { it.hasSignificantSolTransfer(account) }
+            .map { it.toSolscanTransaction(account) }
     }
 
     /**
      * For backward compatibility - returns SPL transfers only
+     * Filters to token transfers where user is sender or receiver
      */
     suspend fun splTransfers(account: String, lastSplTransferHash: String?): List<SolscanTransaction> {
         val heliusTransactions = getTransfers(account, lastSplTransferHash)
         return heliusTransactions
-            .filter { it.hasTokenTransfer }
-            .flatMap { tx -> tx.toSplSolscanTransactions() }
+            .filter { it.hasTokenTransferForUser(account) }
+            .flatMap { tx -> tx.toSplSolscanTransactions(account) }
     }
 
     private suspend fun getTransfersChunk(account: String, beforeSignature: String?): List<HeliusTransaction> {
@@ -182,6 +185,20 @@ class HeliusClient(
             }
         }
 
+        // Parse accountData for actual balance changes (more reliable than nativeTransfers)
+        val accountBalanceChanges = mutableMapOf<String, Long>()
+        val accountDataArray = json.optJSONArray("accountData")
+        if (accountDataArray != null) {
+            for (i in 0 until accountDataArray.length()) {
+                val accountData = accountDataArray.getJSONObject(i)
+                val account = accountData.optString("account", "")
+                val balanceChange = accountData.optLong("nativeBalanceChange", 0)
+                if (account.isNotEmpty()) {
+                    accountBalanceChanges[account] = balanceChange
+                }
+            }
+        }
+
         return HeliusTransaction(
             signature = signature,
             timestamp = timestamp,
@@ -191,6 +208,7 @@ class HeliusClient(
             description = description,
             nativeTransfers = nativeTransfers,
             tokenTransfers = tokenTransfers,
+            accountBalanceChanges = accountBalanceChanges,
             transactionError = transactionError
         )
     }
@@ -269,6 +287,13 @@ class HeliusClient(
 }
 
 /**
+ * Minimum amount for SOL transfers to be considered real (not dust/spam)
+ * 10000 lamports = 0.00001 SOL (~$0.002 at $200/SOL)
+ * This filters out 1-lamport spam airdrops
+ */
+const val MIN_SOL_TRANSFER_LAMPORTS = 10_000L
+
+/**
  * Helius token account data
  */
 data class HeliusTokenAccount(
@@ -290,6 +315,7 @@ data class HeliusTransaction(
     val description: String,
     val nativeTransfers: List<NativeTransfer>,
     val tokenTransfers: List<TokenTransferHelius>,
+    val accountBalanceChanges: Map<String, Long> = emptyMap(),
     val transactionError: String? = null
 ) {
     val hasNativeTransfer: Boolean
@@ -299,39 +325,93 @@ data class HeliusTransaction(
         get() = tokenTransfers.isNotEmpty()
 
     /**
-     * Convert to SolscanTransaction for backward compatibility (SOL transfer)
+     * Get user's actual SOL balance change from accountData (excludes fee if user is fee payer).
+     * This is more reliable than nativeTransfers for determining real SOL movement.
+     * Returns balance change in lamports, positive = received, negative = sent
      */
-    fun toSolscanTransaction(): SolscanTransaction {
-        val nativeTransfer = nativeTransfers.firstOrNull()
+    fun getUserBalanceChange(userAddress: String): Long {
+        val balanceChange = accountBalanceChanges[userAddress] ?: 0L
+        // If user is fee payer, add back the fee to get the actual transfer amount
+        return if (feePayer == userAddress) {
+            balanceChange + fee
+        } else {
+            balanceChange
+        }
+    }
+
+    /**
+     * Check if user has significant SOL transfer (not just fee payment)
+     * Uses accountData.nativeBalanceChange for accuracy
+     */
+    fun hasSignificantSolTransfer(userAddress: String): Boolean {
+        val balanceChange = getUserBalanceChange(userAddress)
+        return kotlin.math.abs(balanceChange) >= MIN_SOL_TRANSFER_LAMPORTS
+    }
+
+    /**
+     * Check if user is involved in any token transfer
+     */
+    fun hasTokenTransferForUser(userAddress: String): Boolean =
+        tokenTransfers.any { it.fromUserAccount == userAddress || it.toUserAccount == userAddress }
+
+    /**
+     * Convert to SolscanTransaction for backward compatibility (SOL transfer)
+     * Uses accountData.nativeBalanceChange for accurate amounts
+     */
+    fun toSolscanTransaction(userAddress: String): SolscanTransaction {
+        val balanceChange = getUserBalanceChange(userAddress)
+
+        // Determine source/destination based on balance change direction
+        val (source, destination, amount) = if (balanceChange > 0) {
+            // User received SOL - find sender from nativeTransfers
+            val sender = nativeTransfers.find { it.toUserAccount == userAddress }?.fromUserAccount
+            Triple(sender, userAddress, balanceChange)
+        } else if (balanceChange < 0) {
+            // User sent SOL - find receiver from nativeTransfers
+            val receiver = nativeTransfers.find { it.fromUserAccount == userAddress }?.toUserAccount
+            Triple(userAddress, receiver, kotlin.math.abs(balanceChange))
+        } else {
+            Triple(null, null, 0L)
+        }
+
+        Log.d("HeliusClient", "TX ${signature.take(10)} type=$type balanceChange=$balanceChange " +
+            "amount=$amount lamports (${amount / 1_000_000_000.0} SOL) from=$source to=$destination")
+
         return SolscanTransaction(
             hash = signature,
             blockTime = timestamp,
             fee = fee.toString(),
-            solTransferSource = nativeTransfer?.fromUserAccount,
-            solTransferDestination = nativeTransfer?.toUserAccount,
-            solAmount = nativeTransfer?.amount,
-            error = transactionError
+            solTransferSource = source,
+            solTransferDestination = destination,
+            solAmount = if (amount > 0) amount else null,
+            error = transactionError,
+            transactionType = type
         )
     }
 
     /**
      * Convert to list of SolscanTransaction for backward compatibility (SPL transfers)
-     * One transaction can have multiple token transfers
      */
-    fun toSplSolscanTransactions(): List<SolscanTransaction> {
-        return tokenTransfers.map { transfer ->
-            SolscanTransaction(
-                hash = signature,
-                blockTime = timestamp,
-                fee = fee.toString(),
-                tokenAccountAddress = transfer.toTokenAccount.ifEmpty { transfer.fromTokenAccount },
-                mintAccountAddress = transfer.mint,
-                splBalanceChange = transfer.tokenAmount.toString(),
-                error = transactionError,
-                splTransferSource = transfer.fromUserAccount,
-                splTransferDestination = transfer.toUserAccount
-            )
-        }
+    fun toSplSolscanTransactions(userAddress: String): List<SolscanTransaction> {
+        return tokenTransfers
+            .filter { it.fromUserAccount == userAddress || it.toUserAccount == userAddress }
+            .map { transfer ->
+                SolscanTransaction(
+                    hash = signature,
+                    blockTime = timestamp,
+                    fee = fee.toString(),
+                    tokenAccountAddress = transfer.toTokenAccount.ifEmpty { transfer.fromTokenAccount },
+                    mintAccountAddress = transfer.mint,
+                    splBalanceChange = transfer.tokenAmount.toString(),
+                    error = transactionError,
+                    splTransferSource = transfer.fromUserAccount,
+                    splTransferDestination = transfer.toUserAccount,
+                    solTransferSource = null,
+                    solTransferDestination = null,
+                    solAmount = null,
+                    transactionType = type
+                )
+            }
     }
 }
 

@@ -15,7 +15,7 @@ import io.horizontalsystems.solanakit.database.transaction.TransactionStorage
 import io.horizontalsystems.solanakit.models.Address
 import io.horizontalsystems.solanakit.models.FullTransaction
 import io.horizontalsystems.solanakit.models.Transaction
-import io.horizontalsystems.solanakit.transactions.SolanaFmService
+import io.horizontalsystems.solanakit.transactions.HeliusClient
 import io.horizontalsystems.solanakit.transactions.TransactionManager
 import kotlinx.coroutines.runBlocking
 import okhttp3.OkHttpClient
@@ -53,7 +53,8 @@ class TransactionManagerFlowTest {
         val config = NetworkingRouterConfig(emptyList(), emptyList())
         val endpoint = RPCEndpoint.custom(URL("https://localhost"), URL("http://localhost"), Network.devnet)
         val api = Api(OkHttpNetworkingRouter(endpoint, httpClient, config))
-        val tokenAccountManager = TokenAccountManager("11111111111111111111111111111111", api, storage, mainStorage, SolanaFmService())
+        val heliusClient = HeliusClient("test-api-key", false, Network.devnet)
+        val tokenAccountManager = TokenAccountManager("11111111111111111111111111111111", api, storage, mainStorage, heliusClient)
         val action = Action(api, listOf())
         transactionManager = TransactionManager(Address("11111111111111111111111111111111"), storage, action, tokenAccountManager, Network.devnet)
     }

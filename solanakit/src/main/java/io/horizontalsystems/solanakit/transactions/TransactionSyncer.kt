@@ -93,7 +93,11 @@ class TransactionSyncer(
 
         for (signatureInfo in rpcSignatureInfos) {
             signatureInfo.blockTime?.let { blockTime ->
-                val transaction = Transaction(signatureInfo.signature, blockTime, error = signatureInfo.err?.toString())
+                val rpcError = signatureInfo.err?.toString()
+                if (rpcError != null) {
+                    android.util.Log.d("TransactionSyncer", "RPC error for ${signatureInfo.signature.take(10)}: $rpcError")
+                }
+                val transaction = Transaction(signatureInfo.signature, blockTime, error = rpcError)
                 transactions[signatureInfo.signature] = FullTransaction(transaction, listOf())
             }
         }
@@ -101,33 +105,44 @@ class TransactionSyncer(
         for ((hash, solscanTxs) in solscanTxsMap.groupBy { it.hash }) {
             try {
                 val existingTransaction = transactions[hash]?.transaction
-                val solscanTx = solscanTxs.first()
-                // Use error from Helius if available, otherwise from RPC
-                val txError = solscanTx.error ?: existingTransaction?.error
-                // Convert fee from lamports to SOL (divide by 10^9)
-                val feeInSol = solscanTx.fee?.toBigDecimalOrNull()?.movePointLeft(SOL_DECIMALS)
-                // Convert amount from lamports to SOL (divide by 10^9)
-                val amountInSol = solscanTx.solAmount?.toBigDecimal()?.movePointLeft(SOL_DECIMALS)
+
+                // Separate SOL and SPL records
+                val solTx = solscanTxs.find { it.mintAccountAddress == null }
+                val splTxs = solscanTxs.filter { it.mintAccountAddress != null }
+
+                // Get fee and error from any record
+                val anyTx = solscanTxs.first()
+                val txError = anyTx.error
+                val feeInSol = anyTx.fee?.toBigDecimalOrNull()?.movePointLeft(SOL_DECIMALS)
+
+                // Always include SOL transfer data - let the converter decide what to show
+                val solSource = solTx?.solTransferSource
+                val solDest = solTx?.solTransferDestination
+                val amountInSol = solTx?.solAmount?.toBigDecimal()?.movePointLeft(SOL_DECIMALS)
+
+                android.util.Log.d("TransactionSyncer", "Merge TX ${hash.take(10)} solAmount=${solTx?.solAmount} " +
+                    "amountInSol=$amountInSol from=$solSource to=$solDest")
+
                 val mergedTransaction = Transaction(
                     hash,
-                    existingTransaction?.timestamp ?: solscanTx.blockTime,
+                    existingTransaction?.timestamp ?: anyTx.blockTime,
                     feeInSol,
-                    solscanTx.solTransferSource,
-                    solscanTx.solTransferDestination,
+                    solSource,
+                    solDest,
                     amountInSol,
                     txError
                 )
 
                 val userAddress = publicKey.toBase58()
-                val tokenTransfers: List<FullTokenTransfer> = solscanTxs.mapNotNull { solscanTx ->
-                    val mintAddress = solscanTx.mintAccountAddress ?: return@mapNotNull null
+                val tokenTransfers: List<FullTokenTransfer> = splTxs.mapNotNull { splTx ->
+                    val mintAddress = splTx.mintAccountAddress ?: return@mapNotNull null
                     val mintAccount = mintAccounts[mintAddress] ?: return@mapNotNull null
-                    val humanReadableAmount = solscanTx.splBalanceChange?.toBigDecimalOrNull() ?: return@mapNotNull null
-                    // Convert from human-readable (Helius) to raw format (expected by SolanaTransactionConverter)
+                    val humanReadableAmount = splTx.splBalanceChange?.toBigDecimalOrNull() ?: return@mapNotNull null
+                    // Convert from human-readable (Helius) to raw format
                     val amount = humanReadableAmount.movePointRight(mintAccount.decimals)
 
                     // Determine direction based on user address
-                    val incoming = solscanTx.splTransferDestination == userAddress
+                    val incoming = splTx.splTransferDestination == userAddress
 
                     FullTokenTransfer(
                         TokenTransfer(hash, mintAddress, incoming, amount),

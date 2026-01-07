@@ -46,10 +46,12 @@ class TransactionStorage(
     }
 
     suspend fun getSolTransactions(incoming: Boolean?, fromHash: String?, limit: Int?): List<FullTransaction> {
+        // User must be sender OR receiver, not just any transaction with amount
+        val userInvolvedCondition = "(tx.`to` = '$address' OR tx.`from` = '$address')"
         val condition = incoming?.let {
-            if (incoming) "(tx.amount IS NOT NULL AND tx.`to` = '$address')"
-            else "(tx.amount IS NOT NULL AND tx.`from` = '$address')"
-        } ?: "tx.amount IS NOT NULL"
+            if (incoming) "(tx.amount IS NOT NULL AND tx.amount > 0 AND tx.`to` = '$address')"
+            else "(tx.amount IS NOT NULL AND tx.amount > 0 AND tx.`from` = '$address')"
+        } ?: "(tx.amount IS NOT NULL AND tx.amount > 0 AND $userInvolvedCondition)"
 
         return getTransactions(condition, false, fromHash, limit)
     }

@@ -47,12 +47,20 @@ class TransactionManager(
     }.filter { it.isNotEmpty() }
 
     fun solTransactionsFlow(incoming: Boolean?): Flow<List<FullTransaction>> = _transactionsFlow.map { txList ->
-        txList.filter { hasSolTransfer(it, incoming) }
+        // For SOL wallet, filter to SOL transfers and remove tokenTransfers
+        txList.filter { hasSolTransfer(it, incoming) }.map {
+            FullTransaction(it.transaction, emptyList())
+        }
     }.filter { it.isNotEmpty() }
 
     fun splTransactionsFlow(mintAddress: String, incoming: Boolean?): Flow<List<FullTransaction>> = _transactionsFlow.map { txList ->
+        // For SPL wallet, filter to specific token and remove SOL transfer data
         txList.filter { fullTransaction ->
             hasSplTransfer(mintAddress, fullTransaction.tokenTransfers, incoming)
+        }.map { fullTx ->
+            val filteredTokenTransfers = fullTx.tokenTransfers.filter { it.mintAccount.address == mintAddress }
+            val cleanTransaction = fullTx.transaction.copy(from = null, to = null, amount = null)
+            FullTransaction(cleanTransaction, filteredTokenTransfers)
         }
     }.filter { it.isNotEmpty() }
 
@@ -61,10 +69,18 @@ class TransactionManager(
         storage.getTransactions(incoming, fromHash, limit)
 
     suspend fun getSolTransaction(incoming: Boolean?, fromHash: String?, limit: Int?): List<FullTransaction> =
-        storage.getSolTransactions(incoming, fromHash, limit)
+        // For SOL wallet, return transactions without tokenTransfers to avoid showing SPL tokens
+        storage.getSolTransactions(incoming, fromHash, limit).map {
+            FullTransaction(it.transaction, emptyList())
+        }
 
     suspend fun getSplTransaction(mintAddress: String, incoming: Boolean?, fromHash: String?, limit: Int?): List<FullTransaction> =
-        storage.getSplTransactions(mintAddress, incoming, fromHash, limit)
+        // For SPL wallet, filter to specific token and remove SOL transfer data
+        storage.getSplTransactions(mintAddress, incoming, fromHash, limit).map { fullTx ->
+            val filteredTokenTransfers = fullTx.tokenTransfers.filter { it.mintAccount.address == mintAddress }
+            val cleanTransaction = fullTx.transaction.copy(from = null, to = null, amount = null)
+            FullTransaction(cleanTransaction, filteredTokenTransfers)
+        }
 
     suspend fun handle(syncedTransactions: List<FullTransaction>, syncedTokenAccounts: List<TokenAccount>) {
         val existingMintAddresses = mutableListOf<String>()
@@ -115,11 +131,17 @@ class TransactionManager(
     }
 
     private fun hasSolTransfer(fullTransaction: FullTransaction, incoming: Boolean?): Boolean {
-        val amount = fullTransaction.transaction.amount ?: return false
-        val incoming = incoming ?: return true
+        val tx = fullTransaction.transaction
+        val amount = tx.amount ?: return false
+        if (amount <= BigDecimal.ZERO) return false
 
-        return amount > BigDecimal.ZERO &&
-                ((incoming && fullTransaction.transaction.to == addressString) || (!incoming && fullTransaction.transaction.from == addressString))
+        // User must be sender or receiver
+        val isUserSender = tx.from == addressString
+        val isUserReceiver = tx.to == addressString
+        if (!isUserSender && !isUserReceiver) return false
+
+        val incoming = incoming ?: return true
+        return (incoming && isUserReceiver) || (!incoming && isUserSender)
     }
 
     private fun hasSplTransfer(mintAddress: String, tokenTransfers: List<FullTokenTransfer>, incoming: Boolean?): Boolean =
@@ -153,7 +175,7 @@ class TransactionManager(
                 fee = SolanaKit.fee,
                 from = addressString,
                 to = toAddress.publicKey.toBase58(),
-                amount = amount.toBigDecimal(),
+                amount = amount.toBigDecimal().movePointLeft(TransactionSyncer.SOL_DECIMALS),
                 pending = true,
                 blockHash = blockHash.blockhash,
                 lastValidBlockHeight = blockHash.lastValidBlockHeight,
