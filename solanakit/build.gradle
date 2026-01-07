@@ -33,12 +33,21 @@ android {
                 "-Xjvm-default=all",
         ]
     }
+
     namespace 'io.horizontalsystems.solanakit'
 
     testOptions {
         unitTests.includeAndroidResources = true
     }
 
+}
+
+// Force kapt to use JVM 17 target
+kapt {
+    javacOptions {
+        option("-source", "17")
+        option("-target", "17")
+    }
 }
 
 afterEvaluate {

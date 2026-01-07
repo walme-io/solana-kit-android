@@ -104,13 +104,17 @@ class TransactionSyncer(
                 val solscanTx = solscanTxs.first()
                 // Use error from Helius if available, otherwise from RPC
                 val txError = solscanTx.error ?: existingTransaction?.error
+                // Convert fee from lamports to SOL (divide by 10^9)
+                val feeInSol = solscanTx.fee?.toBigDecimalOrNull()?.movePointLeft(SOL_DECIMALS)
+                // Convert amount from lamports to SOL (divide by 10^9)
+                val amountInSol = solscanTx.solAmount?.toBigDecimal()?.movePointLeft(SOL_DECIMALS)
                 val mergedTransaction = Transaction(
                     hash,
                     existingTransaction?.timestamp ?: solscanTx.blockTime,
-                    solscanTx.fee?.toBigDecimalOrNull(),
+                    feeInSol,
                     solscanTx.solTransferSource,
                     solscanTx.solTransferDestination,
-                    solscanTx.solAmount?.toBigDecimal(),
+                    amountInSol,
                     txError
                 )
 
@@ -118,7 +122,9 @@ class TransactionSyncer(
                 val tokenTransfers: List<FullTokenTransfer> = solscanTxs.mapNotNull { solscanTx ->
                     val mintAddress = solscanTx.mintAccountAddress ?: return@mapNotNull null
                     val mintAccount = mintAccounts[mintAddress] ?: return@mapNotNull null
-                    val amount = solscanTx.splBalanceChange?.toBigDecimal() ?: return@mapNotNull null
+                    val humanReadableAmount = solscanTx.splBalanceChange?.toBigDecimalOrNull() ?: return@mapNotNull null
+                    // Convert from human-readable (Helius) to raw format (expected by SolanaTransactionConverter)
+                    val amount = humanReadableAmount.movePointRight(mintAccount.decimals)
 
                     // Determine direction based on user address
                     val incoming = solscanTx.splTransferDestination == userAddress
@@ -249,6 +255,7 @@ class TransactionSyncer(
         val tokenProgramId = TokenProgram.PROGRAM_ID.toBase58()
         val tokenMetadataProgramId = TokenMetadataProgram.publicKey.toBase58()
         const val rpcSignaturesCount = 1000
+        const val SOL_DECIMALS = 9 // Solana native token decimals
     }
 
 }

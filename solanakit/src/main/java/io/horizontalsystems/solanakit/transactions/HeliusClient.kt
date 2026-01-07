@@ -326,7 +326,7 @@ data class HeliusTransaction(
                 fee = fee.toString(),
                 tokenAccountAddress = transfer.toTokenAccount.ifEmpty { transfer.fromTokenAccount },
                 mintAccountAddress = transfer.mint,
-                splBalanceChange = transfer.tokenAmount.toLong().toString(),
+                splBalanceChange = transfer.tokenAmount.toString(),
                 error = transactionError,
                 splTransferSource = transfer.fromUserAccount,
                 splTransferDestination = transfer.toUserAccount
