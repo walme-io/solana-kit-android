@@ -114,13 +114,17 @@ class TransactionSyncer(
                     txError
                 )
 
+                val userAddress = publicKey.toBase58()
                 val tokenTransfers: List<FullTokenTransfer> = solscanTxs.mapNotNull { solscanTx ->
                     val mintAddress = solscanTx.mintAccountAddress ?: return@mapNotNull null
                     val mintAccount = mintAccounts[mintAddress] ?: return@mapNotNull null
                     val amount = solscanTx.splBalanceChange?.toBigDecimal() ?: return@mapNotNull null
 
+                    // Determine direction based on user address
+                    val incoming = solscanTx.splTransferDestination == userAddress
+
                     FullTokenTransfer(
-                        TokenTransfer(hash, mintAddress, amount > BigDecimal.ZERO, amount),
+                        TokenTransfer(hash, mintAddress, incoming, amount),
                         mintAccount
                     )
                 }

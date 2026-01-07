@@ -234,5 +234,8 @@ data class SolscanTransaction(
     val solTransferSource: String? = null,
     val solTransferDestination: String? = null,
     val solAmount: Long? = null,
-    val error: String? = null
+    val error: String? = null,
+    // SPL transfer direction fields (from Helius)
+    val splTransferSource: String? = null,
+    val splTransferDestination: String? = null
 )
