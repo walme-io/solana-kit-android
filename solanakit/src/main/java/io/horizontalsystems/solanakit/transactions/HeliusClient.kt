@@ -133,6 +133,9 @@ class HeliusClient(
         val type = json.optString("type", "UNKNOWN")
         val description = json.optString("description", "")
 
+        // Parse transactionError field
+        val transactionError = json.optJSONObject("transactionError")?.optString("error")
+
         // Parse native transfers
         val nativeTransfers = mutableListOf<NativeTransfer>()
         val nativeTransfersArray = json.optJSONArray("nativeTransfers")
@@ -177,7 +180,8 @@ class HeliusClient(
             type = type,
             description = description,
             nativeTransfers = nativeTransfers,
-            tokenTransfers = tokenTransfers
+            tokenTransfers = tokenTransfers,
+            transactionError = transactionError
         )
     }
 
@@ -275,7 +279,8 @@ data class HeliusTransaction(
     val type: String,
     val description: String,
     val nativeTransfers: List<NativeTransfer>,
-    val tokenTransfers: List<TokenTransferHelius>
+    val tokenTransfers: List<TokenTransferHelius>,
+    val transactionError: String? = null
 ) {
     val hasNativeTransfer: Boolean
         get() = nativeTransfers.isNotEmpty()
@@ -294,7 +299,8 @@ data class HeliusTransaction(
             fee = fee.toString(),
             solTransferSource = nativeTransfer?.fromUserAccount,
             solTransferDestination = nativeTransfer?.toUserAccount,
-            solAmount = nativeTransfer?.amount
+            solAmount = nativeTransfer?.amount,
+            error = transactionError
         )
     }
 
@@ -310,7 +316,8 @@ data class HeliusTransaction(
                 fee = fee.toString(),
                 tokenAccountAddress = transfer.toTokenAccount.ifEmpty { transfer.fromTokenAccount },
                 mintAccountAddress = transfer.mint,
-                splBalanceChange = transfer.tokenAmount.toLong().toString()
+                splBalanceChange = transfer.tokenAmount.toLong().toString(),
+                error = transactionError
             )
         }
     }

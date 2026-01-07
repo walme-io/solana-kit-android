@@ -22,6 +22,9 @@ interface TokenAccountDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     fun insert(balance: List<TokenAccount>)
 
+    @Query("DELETE FROM TokenAccount WHERE mintAddress IN (:mintAddresses)")
+    fun deleteByMintAddresses(mintAddresses: List<String>)
+
     @Query("SELECT * FROM TokenAccount WHERE mintAddress=:mintAddress LIMIT 1")
     fun get(mintAddress: String): TokenAccountWrapper?
 

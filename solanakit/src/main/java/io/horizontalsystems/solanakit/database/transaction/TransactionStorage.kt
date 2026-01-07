@@ -112,6 +112,12 @@ class TransactionStorage(
     }
 
     fun saveTokenAccounts(tokenAccounts: List<TokenAccount>) {
+        // Delete old entries by mintAddress first to avoid duplicates
+        // (primary key is address, but we want one entry per mintAddress)
+        val mintAddresses = tokenAccounts.map { it.mintAddress }
+        if (mintAddresses.isNotEmpty()) {
+            tokenAccountDao.deleteByMintAddresses(mintAddresses)
+        }
         tokenAccountDao.insert(tokenAccounts)
     }
 

@@ -102,6 +102,8 @@ class TransactionSyncer(
             try {
                 val existingTransaction = transactions[hash]?.transaction
                 val solscanTx = solscanTxs.first()
+                // Use error from Helius if available, otherwise from RPC
+                val txError = solscanTx.error ?: existingTransaction?.error
                 val mergedTransaction = Transaction(
                     hash,
                     existingTransaction?.timestamp ?: solscanTx.blockTime,
@@ -109,7 +111,7 @@ class TransactionSyncer(
                     solscanTx.solTransferSource,
                     solscanTx.solTransferDestination,
                     solscanTx.solAmount?.toBigDecimal(),
-                    existingTransaction?.error
+                    txError
                 )
 
                 val tokenTransfers: List<FullTokenTransfer> = solscanTxs.mapNotNull { solscanTx ->

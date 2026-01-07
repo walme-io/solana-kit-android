@@ -233,5 +233,6 @@ data class SolscanTransaction(
     val mintAccountAddress: String? = null,
     val solTransferSource: String? = null,
     val solTransferDestination: String? = null,
-    val solAmount: Long? = null
+    val solAmount: Long? = null,
+    val error: String? = null
 )
