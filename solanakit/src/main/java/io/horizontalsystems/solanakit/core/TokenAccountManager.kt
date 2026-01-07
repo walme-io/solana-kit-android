@@ -85,7 +85,11 @@ class TokenAccountManager(
         syncState = SolanaKit.SyncState.Syncing()
 
         var initialSync = mainStorage.isInitialSync()
-        if (initialSync) {
+        // Also fetch if no token accounts exist (data might be stale/corrupted)
+        val existingAccounts = storage.getTokenAccounts()
+        val shouldFetchFromHelius = initialSync || existingAccounts.isEmpty()
+
+        if (shouldFetchFromHelius) {
             try {
                 fetchTokenAccounts(walletAddress)
             } catch (e: Throwable) {
