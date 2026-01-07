@@ -133,8 +133,13 @@ class HeliusClient(
         val type = json.optString("type", "UNKNOWN")
         val description = json.optString("description", "")
 
-        // Parse transactionError field
-        val transactionError = json.optJSONObject("transactionError")?.optString("error")
+        // Parse transactionError field - null means success
+        // Format: {"error": "<string>"} or null
+        val transactionErrorObj = json.optJSONObject("transactionError")
+        val transactionError = transactionErrorObj?.let { errorObj ->
+            val errorStr = errorObj.optString("error", "")
+            if (errorStr.isNotEmpty()) errorStr else null
+        }
 
         // Parse native transfers
         val nativeTransfers = mutableListOf<NativeTransfer>()
