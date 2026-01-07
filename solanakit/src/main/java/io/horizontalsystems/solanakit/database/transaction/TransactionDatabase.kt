@@ -19,7 +19,7 @@ import io.horizontalsystems.solanakit.models.*
         Transaction::class,
         TokenAccount::class
     ],
-    version = 8,
+    version = 9,  // Bumped for TokenAccount primary key change to mintAddress
     exportSchema = false
 )
 @TypeConverters(RoomTypeConverters::class)

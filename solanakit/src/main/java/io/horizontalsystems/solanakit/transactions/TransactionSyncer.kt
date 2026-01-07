@@ -233,7 +233,12 @@ class TransactionSyncer(
             val mintAccount = solscanTx.mintAccountAddress?.let { mintAccounts[it] } ?: return@mapNotNull null
             val tokenAccountAddress = solscanTx.tokenAccountAddress ?: return@mapNotNull null
 
-            TokenAccount(tokenAccountAddress, mintAccount.address, BigDecimal.ZERO, mintAccount.decimals)
+            TokenAccount(
+                mintAddress = mintAccount.address,
+                address = tokenAccountAddress,
+                balance = BigDecimal.ZERO,
+                decimals = mintAccount.decimals
+            )
         }.toSet().toMutableList()
 
     companion object {

@@ -69,10 +69,10 @@ class TokenAccountManager(
         val heliusTokenAccounts = heliusClient.getTokenAccounts(walletAddress)
         val tokenAccounts = heliusTokenAccounts.map { heliusAccount ->
             TokenAccount(
-                heliusAccount.tokenAccount,
-                heliusAccount.mint,
-                heliusAccount.amount.toBigDecimal().movePointLeft(heliusAccount.decimals),
-                heliusAccount.decimals
+                mintAddress = heliusAccount.mint,
+                address = heliusAccount.tokenAccount,
+                balance = heliusAccount.amount.toBigDecimal().movePointLeft(heliusAccount.decimals),
+                decimals = heliusAccount.decimals
             )
         }
         val mintAccounts = heliusTokenAccounts.map { MintAccount(it.mint, it.decimals) }
@@ -135,7 +135,12 @@ class TokenAccountManager(
         for ((index, tokenAccount) in tokenAccounts.withIndex()) {
             tokenAccountsBufferInfo[index]?.let { account ->
                 val balance = account.data?.value?.lamports?.toBigDecimal() ?: tokenAccount.balance
-                updatedTokenAccounts.add(TokenAccount(tokenAccount.address, tokenAccount.mintAddress, balance, tokenAccount.decimals))
+                updatedTokenAccounts.add(TokenAccount(
+                    mintAddress = tokenAccount.mintAddress,
+                    address = tokenAccount.address,
+                    balance = balance,
+                    decimals = tokenAccount.decimals
+                ))
             }
         }
 
@@ -160,8 +165,13 @@ class TokenAccountManager(
 
     fun addTokenAccount(walletAddress: String, mintAddress: String, decimals: Int) {
         if (!storage.tokenAccountExists(mintAddress)) {
-            val userTokenMintAddress = associatedTokenAddress(walletAddress, mintAddress)
-            val tokenAccount = TokenAccount(userTokenMintAddress, mintAddress, BigDecimal.ZERO, decimals)
+            val ataAddress = associatedTokenAddress(walletAddress, mintAddress)
+            val tokenAccount = TokenAccount(
+                mintAddress = mintAddress,
+                address = ataAddress,
+                balance = BigDecimal.ZERO,
+                decimals = decimals
+            )
             val mintAccount = MintAccount(mintAddress, decimals)
             storage.addTokenAccount(tokenAccount)
             storage.addMintAccount(mintAccount)
