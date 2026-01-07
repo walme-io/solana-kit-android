@@ -1,5 +1,6 @@
 package io.horizontalsystems.solanakit.transactions
 
+import android.util.Log
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.ResponseBody
@@ -138,7 +139,11 @@ class HeliusClient(
         val transactionErrorObj = json.optJSONObject("transactionError")
         val transactionError = transactionErrorObj?.let { errorObj ->
             val errorStr = errorObj.optString("error", "")
+            Log.d("HeliusClient", "TX $signature transactionError obj: $errorObj, errorStr: '$errorStr'")
             if (errorStr.isNotEmpty()) errorStr else null
+        }
+        if (transactionError != null) {
+            Log.d("HeliusClient", "TX $signature has error: $transactionError")
         }
 
         // Parse native transfers
